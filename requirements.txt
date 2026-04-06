@@ -1,0 +1,3 @@
+webex-bot
+requests
+python-dotenv
