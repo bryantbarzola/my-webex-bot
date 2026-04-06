@@ -22,9 +22,8 @@ load_dotenv()
 # CONFIG - Change these in your .env file
 # ---------------------------------------------------------
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-AI_PROVIDER = os.getenv("AI_PROVIDER", "circuit")
+AI_PROVIDER = os.getenv("AI_PROVIDER")
 AI_API_KEY = os.getenv("AI_API_KEY")
-CIRCUIT_API_URL = os.getenv("CIRCUIT_API_URL", "https://circuit.cisco.com/v1/chat/completions")
 
 # =========================================================
 # ROOM RESTRICTION - START
@@ -125,14 +124,12 @@ def ask_ai(user_message: str, memory_key: str = None) -> str:
     # -- MEMORY: load past messages if a memory key is provided --
     history = get_memory(memory_key) if memory_key else []
 
-    if AI_PROVIDER == "circuit":
-        reply = _call_circuit(user_message, history)
-    elif AI_PROVIDER == "openai":
+    if AI_PROVIDER == "openai":
         reply = _call_openai(user_message, history)
     elif AI_PROVIDER == "claude":
         reply = _call_claude(user_message, history)
     else:
-        return f"Unknown AI provider: {AI_PROVIDER}. Check your .env file."
+        return f"Unknown AI provider: {AI_PROVIDER}. Set AI_PROVIDER to 'openai' or 'claude' in your .env file."
 
     # -- MEMORY: store the exchange so the bot remembers it next time --
     if memory_key:
@@ -143,29 +140,11 @@ def ask_ai(user_message: str, memory_key: str = None) -> str:
 
 
 def _build_openai_messages(user_message: str, history: list) -> list:
-    """Build the messages array for OpenAI-compatible APIs (Circuit + OpenAI)."""
+    """Build the messages array for OpenAI-compatible APIs."""
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages.extend(history)  # -- MEMORY: inject past conversation --
     messages.append({"role": "user", "content": user_message})
     return messages
-
-
-def _call_circuit(user_message: str, history: list) -> str:
-    """Call Cisco CIRCUIT API (OpenAI-compatible proxy)."""
-    response = requests.post(
-        CIRCUIT_API_URL,
-        headers={
-            "Authorization": f"Bearer {AI_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": "gpt-4o",
-            "messages": _build_openai_messages(user_message, history),
-        },
-        timeout=30,
-    )
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
 
 
 def _call_openai(user_message: str, history: list) -> str:
@@ -307,6 +286,9 @@ class AskTARS(Command):
 if __name__ == "__main__":
     if not BOT_TOKEN:
         print("ERROR: BOT_TOKEN is missing. Add it to your .env file.")
+        exit(1)
+    if not AI_PROVIDER:
+        print("ERROR: AI_PROVIDER is missing. Set it to 'openai' or 'claude' in your .env file.")
         exit(1)
     if not AI_API_KEY:
         print("ERROR: AI_API_KEY is missing. Add it to your .env file.")
