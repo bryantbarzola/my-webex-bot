@@ -195,7 +195,7 @@ def _call_bedrock(user_message: str, history: list) -> str:
     })
 
     response = client.invoke_model(
-        modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+        modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
         contentType="application/json",
         accept="application/json",
         body=body,
