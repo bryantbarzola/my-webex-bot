@@ -1,3 +1,4 @@
 webex-bot
 requests
 python-dotenv
+boto3

@@ -7,7 +7,9 @@ Features: conversation memory, room restriction, custom personality.
 """
 
 import os
+import json
 import requests
+import boto3
 from dotenv import load_dotenv
 from webex_bot.webex_bot import WebexBot
 from webex_bot.models.command import Command
@@ -21,6 +23,11 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 AI_PROVIDER = os.getenv("AI_PROVIDER")
 AI_API_KEY = os.getenv("AI_API_KEY")
+
+# Bedrock-specific config (only needed if AI_PROVIDER=bedrock)
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
 # ---------------------------------------------------------
 # ROOM RESTRICTION
@@ -106,8 +113,10 @@ def ask_ai(user_message: str, memory_key: str = None) -> str:
         reply = _call_openai(user_message, history)
     elif AI_PROVIDER == "claude":
         reply = _call_claude(user_message, history)
+    elif AI_PROVIDER == "bedrock":
+        reply = _call_bedrock(user_message, history)
     else:
-        return f"Unknown AI provider: {AI_PROVIDER}. Set AI_PROVIDER to 'openai' or 'claude' in your .env file."
+        return f"Unknown AI provider: {AI_PROVIDER}. Set AI_PROVIDER to 'openai', 'claude', or 'bedrock' in your .env file."
 
     if memory_key:
         add_to_memory(memory_key, "user", user_message)
@@ -164,6 +173,36 @@ def _call_claude(user_message: str, history: list) -> str:
     )
     response.raise_for_status()
     return response.json()["content"][0]["text"]
+
+
+def _call_bedrock(user_message: str, history: list) -> str:
+    """Call AWS Bedrock (Claude) API."""
+    client = boto3.client(
+        "bedrock-runtime",
+        region_name=AWS_REGION,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    )
+
+    messages = list(history)
+    messages.append({"role": "user", "content": user_message})
+
+    body = json.dumps({
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 1024,
+        "system": SYSTEM_PROMPT,
+        "messages": messages,
+    })
+
+    response = client.invoke_model(
+        modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+        contentType="application/json",
+        accept="application/json",
+        body=body,
+    )
+
+    result = json.loads(response["body"].read())
+    return result["content"][0]["text"]
 
 
 # ---------------------------------------------------------
@@ -258,9 +297,13 @@ if __name__ == "__main__":
         print("ERROR: BOT_TOKEN is missing. Add it to your .env file.")
         exit(1)
     if not AI_PROVIDER:
-        print("ERROR: AI_PROVIDER is missing. Set it to 'openai' or 'claude' in your .env file.")
+        print("ERROR: AI_PROVIDER is missing. Set it to 'openai', 'claude', or 'bedrock' in your .env file.")
         exit(1)
-    if not AI_API_KEY:
+    if AI_PROVIDER == "bedrock":
+        if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
+            print("ERROR: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are required for bedrock provider.")
+            exit(1)
+    elif not AI_API_KEY:
         print("ERROR: AI_API_KEY is missing. Add it to your .env file.")
         exit(1)
 
