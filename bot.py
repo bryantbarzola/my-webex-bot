@@ -315,8 +315,7 @@ if __name__ == "__main__":
         print("Room restriction: disabled (responding in all rooms)")
     print("Press Ctrl+C to stop the bot.\n")
 
-    bot = WebexBot(BOT_TOKEN)
+    bot = WebexBot(BOT_TOKEN, help_command=AskTARS())
     bot.add_command(RoomInfo())
     bot.add_command(ClearMemory())
-    bot.add_command(AskTARS())
     bot.run()
