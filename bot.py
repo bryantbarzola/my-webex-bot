@@ -23,6 +23,14 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 AI_PROVIDER = os.getenv("AI_PROVIDER")
 AI_API_KEY = os.getenv("AI_API_KEY")
+AI_MODEL = os.getenv("AI_MODEL")
+
+# Default models per provider (used when AI_MODEL is not set)
+DEFAULT_MODELS = {
+    "openai": "gpt-4o",
+    "claude": "claude-sonnet-4-6-20250514",
+    "bedrock": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+}
 
 # Bedrock-specific config (only needed if AI_PROVIDER=bedrock)
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -142,7 +150,7 @@ def _call_openai(user_message: str, history: list) -> str:
             "Content-Type": "application/json",
         },
         json={
-            "model": "gpt-4o",
+            "model": AI_MODEL or DEFAULT_MODELS["openai"],
             "messages": _build_openai_messages(user_message, history),
         },
         timeout=30,
@@ -164,7 +172,7 @@ def _call_claude(user_message: str, history: list) -> str:
             "Content-Type": "application/json",
         },
         json={
-            "model": "claude-sonnet-4-6-20250514",
+            "model": AI_MODEL or DEFAULT_MODELS["claude"],
             "max_tokens": 1024,
             "system": SYSTEM_PROMPT,
             "messages": messages,
@@ -195,7 +203,7 @@ def _call_bedrock(user_message: str, history: list) -> str:
     })
 
     response = client.invoke_model(
-        modelId="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        modelId=AI_MODEL or DEFAULT_MODELS["bedrock"],
         contentType="application/json",
         accept="application/json",
         body=body,
@@ -307,7 +315,8 @@ if __name__ == "__main__":
         print("ERROR: AI_API_KEY is missing. Add it to your .env file.")
         exit(1)
 
-    print(f"Starting TARS bot with AI provider: {AI_PROVIDER}")
+    model = AI_MODEL or DEFAULT_MODELS.get(AI_PROVIDER, "unknown")
+    print(f"Starting TARS bot with AI provider: {AI_PROVIDER} (model: {model})")
     print(f"Conversation memory: enabled (last {MAX_MEMORY_MESSAGES} messages per user)")
     if ALLOWED_ROOMS:
         print(f"Room restriction: enabled ({len(ALLOWED_ROOMS)} room(s) allowed)")
