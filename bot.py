@@ -225,8 +225,99 @@ def is_room_allowed(room_id: str) -> bool:
 
 
 # ---------------------------------------------------------
+# WELCOME CARD - Adaptive Card shown when user types "help"
+# ---------------------------------------------------------
+WELCOME_CARD = {
+    "type": "AdaptiveCard",
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "version": "1.3",
+    "body": [
+        {
+            "type": "TextBlock",
+            "text": "TARS Bot",
+            "weight": "Bolder",
+            "size": "Large",
+        },
+        {
+            "type": "TextBlock",
+            "text": "AI assistant with 75% humor calibration. Type anything to chat with me, or use the quick actions below.",
+            "wrap": True,
+            "spacing": "Small",
+        },
+        {
+            "type": "Input.Text",
+            "id": "message",
+            "placeholder": "Type a message for TARS...",
+        },
+    ],
+    "actions": [
+        {
+            "type": "Action.Submit",
+            "title": "Send to TARS",
+            "data": {"callback_keyword": "help_card", "action": "chat"},
+        },
+        {
+            "type": "Action.Submit",
+            "title": "Clear Memory",
+            "data": {"callback_keyword": "help_card", "action": "clear"},
+        },
+        {
+            "type": "Action.Submit",
+            "title": "Room Info",
+            "data": {"callback_keyword": "help_card", "action": "room_info"},
+        },
+    ],
+}
+
+
+# ---------------------------------------------------------
 # BOT COMMANDS
 # ---------------------------------------------------------
+class HelpCard(Command):
+    def __init__(self):
+        super().__init__(
+            command_keyword="help",
+            help_message="Show the TARS welcome card with quick actions",
+            card=WELCOME_CARD,
+        )
+
+    def execute(self, message, attachment_actions, activity):
+        """Handle button clicks from the welcome card."""
+        action = attachment_actions.inputs.get("action", "")
+        sender = activity["actor"]["emailAddress"]
+        room = activity["target"]["id"]
+
+        if action == "chat":
+            user_message = attachment_actions.inputs.get("message", "").strip()
+            if not user_message:
+                return "Type a message in the text box first, Cooper."
+            if not is_room_allowed(room):
+                return "Sorry, I'm not authorized to respond in this room."
+            memory_key = get_memory_key(room, sender)
+            try:
+                return ask_ai(user_message, memory_key)
+            except Exception as e:
+                return f"Something went wrong talking to the AI: {e}"
+
+        elif action == "clear":
+            key = get_memory_key(room, sender)
+            if clear_memory(key):
+                return "Memory wiped. Starting fresh, just like after a reboot."
+            return "Nothing to clear — your memory was already empty."
+
+        elif action == "room_info":
+            response = Response()
+            response.markdown = (
+                f"**Room ID:** `{room}`\n\n"
+                "To restrict the bot to this room, add this to your `.env` file:\n\n"
+                f"```\nALLOWED_ROOMS={room}\n```\n\n"
+                "Then restart the bot."
+            )
+            return response
+
+        return "Unknown action. Try again!"
+
+
 class RoomInfo(Command):
     def __init__(self):
         super().__init__(
@@ -325,6 +416,7 @@ if __name__ == "__main__":
     print("Press Ctrl+C to stop the bot.\n")
 
     bot = WebexBot(BOT_TOKEN, help_command=AskTARS())
+    bot.add_command(HelpCard())
     bot.add_command(RoomInfo())
     bot.add_command(ClearMemory())
     bot.run()
