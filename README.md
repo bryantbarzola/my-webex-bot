@@ -1,48 +1,27 @@
 # Webex AI Bot
 
-A simple, single-file Webex bot powered by AI. Built for the Cisco Live walk-in lab: *Build Your Own Personalized Webex AI Bot: Fast, Fun, and Surprisingly Powerful*.
+A single-file Webex bot powered by AI. Built for the Cisco Live walk-in lab: *Build Your Own Personalized Webex AI Bot*.
 
 ## Features
 
-- **Multi-provider AI** — supports OpenAI, Anthropic Claude, and AWS Bedrock
-- **Conversation memory** — remembers the last 20 messages per user per room
+- **Multi-provider AI** — OpenAI, Anthropic Claude, or AWS Bedrock
+- **Conversation memory** — remembers the last 20 messages per user
 - **Custom personality** — change the system prompt to make the bot act however you want
 - **Room restriction** — lock the bot to specific Webex spaces
 - **Adaptive Card** — type "help" for a welcome card with quick actions
 
 ## Quick Start
 
-### 1. Create a Webex Bot
-
-1. Go to [developer.webex.com](https://developer.webex.com/) and sign in
-2. Profile icon → **My Webex Apps** → **Create a New App** → **Create a Bot**
-3. Fill in name/username, click **Add Bot**
-4. Copy the **Bot Access Token**
-
-### 2. Configure
-
 ```bash
-cp .env.sample .env
-```
-
-Edit `.env` and paste your bot token. Choose an AI provider and add its credentials:
-
-| Provider | `AI_PROVIDER` | Auth needed |
-|----------|---------------|-------------|
-| AWS Bedrock | `bedrock` | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` |
-| OpenAI | `openai` | `AI_API_KEY` |
-| Anthropic | `claude` | `AI_API_KEY` |
-
-### 3. Install & Run
-
-```bash
+git clone https://github.com/bryantbarzola/my-webex-bot.git
+cd my-webex-bot
 pip install -r requirements.txt
+cp .env.sample .env
+# Edit .env — add your bot token and AI credentials
 python bot.py
 ```
 
-### 4. Talk to it
-
-Open [web.webex.com](https://web.webex.com/), search for your bot's username, and send it a message.
+> **New to Python or setting this up for the first time?** Follow the full [Setup Guide](SETUP.md) for step-by-step instructions on Mac, Windows, and Linux.
 
 ## Bot Commands
 
@@ -50,25 +29,34 @@ Open [web.webex.com](https://web.webex.com/), search for your bot's username, an
 |---------|-------------|
 | `help` | Show welcome card with quick actions |
 | `clear memory` | Wipe your conversation history |
-| `room info` | Show the current room ID (for room restriction) |
+| `room info` | Show the current room ID |
 
 ## Customize the Personality
 
 Find `SYSTEM_PROMPT` near the top of `bot.py` and change it to whatever you want. Restart the bot to apply.
 
+## AI Providers
+
+| Provider | `AI_PROVIDER` value | Auth needed |
+|----------|---------------------|-------------|
+| AWS Bedrock | `bedrock` | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` |
+| OpenAI | `openai` | `AI_API_KEY` |
+| Anthropic Claude | `claude` | `AI_API_KEY` |
+
 ## File Structure
 
 ```
-bot.py            # The entire bot (single file, ~390 lines)
-.env.sample       # Configuration template
-requirements.txt  # Python dependencies
+bot.py              # The entire bot (~390 lines)
+.env.sample         # Configuration template
+requirements.txt    # Python dependencies
+SETUP.md            # Full setup guide for local install
 ```
 
-## Requirements
+## Want More?
 
-- Python 3.9+
-- A Webex bot token
-- An AI provider API key (or AWS credentials for Bedrock)
+If you want an **agentic** Webex bot that runs Claude Code on a Linux machine and can execute tasks, check out:
+
+[claude-webex-bridge](https://github.com/bryantbarzola/claude-webex-bridge)
 
 ## License
 
