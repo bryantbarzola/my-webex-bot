@@ -37,6 +37,16 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
+# Initialize Bedrock client once (reused across all requests)
+bedrock_client = None
+if AI_PROVIDER == "bedrock" and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    bedrock_client = boto3.client(
+        "bedrock-runtime",
+        region_name=AWS_REGION,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    )
+
 # ---------------------------------------------------------
 # ROOM RESTRICTION
 # ---------------------------------------------------------
@@ -185,13 +195,6 @@ def _call_claude(user_message: str, history: list) -> str:
 
 def _call_bedrock(user_message: str, history: list) -> str:
     """Call AWS Bedrock (Claude) API."""
-    client = boto3.client(
-        "bedrock-runtime",
-        region_name=AWS_REGION,
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    )
-
     messages = list(history)
     messages.append({"role": "user", "content": user_message})
 
@@ -202,7 +205,7 @@ def _call_bedrock(user_message: str, history: list) -> str:
         "messages": messages,
     })
 
-    response = client.invoke_model(
+    response = bedrock_client.invoke_model(
         modelId=AI_MODEL or DEFAULT_MODELS["bedrock"],
         contentType="application/json",
         accept="application/json",
@@ -276,9 +279,9 @@ WELCOME_CARD = {
 class HelpCard(Command):
     def __init__(self):
         super().__init__(
-            command_keyword="help",
-            help_message="Show the TARS welcome card with quick actions",
-            card=WELCOME_CARD,
+            command_keyword="help_card",
+            help_message="Handle welcome card button clicks",
+            card=None,
         )
 
     def execute(self, message, attachment_actions, activity):
@@ -316,6 +319,18 @@ class HelpCard(Command):
             return response
 
         return "Unknown action. Try again!"
+
+
+class Help(Command):
+    def __init__(self):
+        super().__init__(
+            command_keyword="help",
+            help_message="Show the TARS welcome card with quick actions",
+            card=WELCOME_CARD,
+        )
+
+    def execute(self, message, attachment_actions, activity):
+        return ""
 
 
 class RoomInfo(Command):
@@ -416,6 +431,7 @@ if __name__ == "__main__":
     print("Press Ctrl+C to stop the bot.\n")
 
     bot = WebexBot(BOT_TOKEN, help_command=AskTARS())
+    bot.add_command(Help())
     bot.add_command(HelpCard())
     bot.add_command(RoomInfo())
     bot.add_command(ClearMemory())
