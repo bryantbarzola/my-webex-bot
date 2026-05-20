@@ -1,6 +1,6 @@
 # Webex AI Bot
 
-A single-file Webex bot powered by AI. Built for the Cisco Live walk-in lab: *Build Your Own Personalized Webex AI Bot*.
+A single-file Webex bot powered by AI.
 
 ## Features
 
