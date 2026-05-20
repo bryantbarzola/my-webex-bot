@@ -23,6 +23,18 @@ python bot.py
 
 > **New to Python or setting this up for the first time?** Follow the full [Setup Guide](SETUP.md) for step-by-step instructions on Mac, Windows, and Linux.
 
+### Run in Background (survives terminal close)
+
+```bash
+nohup python bot.py > bot.log 2>&1 &
+```
+
+This keeps the bot running even after you close the terminal. To stop it later:
+
+```bash
+kill $(pgrep -f "python bot.py")
+```
+
 ## Bot Commands
 
 | Command | What it does |
