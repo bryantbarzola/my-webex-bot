@@ -66,18 +66,18 @@ A virtual environment keeps this project's packages separate from the rest of yo
 ### Mac / Linux
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv mywebexbotvenv
+source mywebexbotvenv/bin/activate
 ```
 
 ### Windows
 
 ```bash
-python -m venv venv
-venv\Scripts\activate
+python -m venv mywebexbotvenv
+mywebexbotvenv\Scripts\activate
 ```
 
-You'll see `(venv)` at the start of your terminal prompt when it's active.
+You'll see `(mywebexbotvenv)` at the start of your terminal prompt when it's active.
 
 ---
 
@@ -182,10 +182,10 @@ Every time you come back, activate the virtual environment first:
 
 ```bash
 # Mac/Linux
-source venv/bin/activate
+source mywebexbotvenv/bin/activate
 
 # Windows
-venv\Scripts\activate
+mywebexbotvenv\Scripts\activate
 ```
 
 Then run:
@@ -203,7 +203,7 @@ python bot.py
 | `python: command not found` | Try `python3` instead, or check your PATH |
 | `ERROR: BOT_TOKEN is missing` | Make sure you edited `.env` and pasted your token |
 | Bot runs but doesn't respond | Make sure you're sending a **direct message** to the bot |
-| `ModuleNotFoundError` | Make sure your virtual environment is activated (`source venv/bin/activate`) |
+| `ModuleNotFoundError` | Make sure your virtual environment is activated (`source mywebexbotvenv/bin/activate`) |
 | Slow first response | Normal — the AI needs to "warm up". Subsequent messages will be faster |
 
 ---
