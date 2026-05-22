@@ -7,13 +7,19 @@ Features: conversation memory, room restriction, custom personality.
 """
 
 import os
+import sys
 import json
+import threading
 import requests
-import boto3
 from dotenv import load_dotenv
 from webex_bot.webex_bot import WebexBot
 from webex_bot.models.command import Command
 from webex_bot.models.response import Response
+
+try:
+    import boto3
+except ImportError:
+    boto3 = None
 
 load_dotenv()
 
@@ -40,6 +46,9 @@ AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 # Initialize Bedrock client once (reused across all requests)
 bedrock_client = None
 if AI_PROVIDER == "bedrock" and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    if boto3 is None:
+        print("ERROR: boto3 is required for bedrock provider. Install it: pip install boto3")
+        sys.exit(1)
     bedrock_client = boto3.client(
         "bedrock-runtime",
         region_name=AWS_REGION,
@@ -90,33 +99,40 @@ Remember: "Everybody good? Plenty of slaves for my robot colony?"
 
 MAX_MEMORY_MESSAGES = 20
 conversations = {}
+_memory_lock = threading.Lock()
 
 
 def get_memory_key(room_id: str, user_email: str) -> str:
     """Build a unique key per user per room."""
-    return f"{room_id}_{user_email}"
+    return f"{room_id}:{user_email}"
 
 
 def get_memory(key: str) -> list:
-    """Return the conversation history for this key."""
-    return conversations.get(key, [])
+    """Return a copy of the conversation history for this key."""
+    with _memory_lock:
+        return list(conversations.get(key, []))
 
 
 def add_to_memory(key: str, role: str, content: str):
-    """Store a message and trim if over the limit."""
-    if key not in conversations:
-        conversations[key] = []
-    conversations[key].append({"role": role, "content": content})
-    if len(conversations[key]) > MAX_MEMORY_MESSAGES:
-        conversations[key] = conversations[key][-MAX_MEMORY_MESSAGES:]
+    """Store a message and trim if over the limit (keeping pairs intact)."""
+    with _memory_lock:
+        if key not in conversations:
+            conversations[key] = []
+        conversations[key].append({"role": role, "content": content})
+        if len(conversations[key]) > MAX_MEMORY_MESSAGES:
+            trimmed = conversations[key][-MAX_MEMORY_MESSAGES:]
+            if trimmed and trimmed[0]["role"] == "assistant":
+                trimmed = trimmed[1:]
+            conversations[key] = trimmed
 
 
 def clear_memory(key: str) -> bool:
     """Erase conversation history for this key."""
-    if key in conversations:
-        del conversations[key]
-        return True
-    return False
+    with _memory_lock:
+        if key in conversations:
+            del conversations[key]
+            return True
+        return False
 
 
 # ---------------------------------------------------------
@@ -126,6 +142,9 @@ def ask_ai(user_message: str, memory_key: str = None) -> str:
     """Send a message to the configured AI provider and return the response."""
 
     history = get_memory(memory_key) if memory_key else []
+
+    if memory_key:
+        add_to_memory(memory_key, "user", user_message)
 
     if AI_PROVIDER == "openai":
         reply = _call_openai(user_message, history)
@@ -137,7 +156,6 @@ def ask_ai(user_message: str, memory_key: str = None) -> str:
         return f"Unknown AI provider: {AI_PROVIDER}. Set AI_PROVIDER to 'openai', 'claude', or 'bedrock' in your .env file."
 
     if memory_key:
-        add_to_memory(memory_key, "user", user_message)
         add_to_memory(memory_key, "assistant", reply)
 
     return reply
@@ -153,6 +171,8 @@ def _build_openai_messages(user_message: str, history: list) -> list:
 
 def _call_openai(user_message: str, history: list) -> str:
     """Call OpenAI API."""
+    if not AI_API_KEY:
+        raise ValueError("AI_API_KEY is not configured")
     response = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={
@@ -166,11 +186,17 @@ def _call_openai(user_message: str, history: list) -> str:
         timeout=30,
     )
     response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
+    data = response.json()
+    choices = data.get("choices", [])
+    if not choices:
+        return "The AI returned an empty response. Try again."
+    return choices[0]["message"]["content"]
 
 
 def _call_claude(user_message: str, history: list) -> str:
     """Call Anthropic Claude API."""
+    if not AI_API_KEY:
+        raise ValueError("AI_API_KEY is not configured")
     messages = list(history)
     messages.append({"role": "user", "content": user_message})
 
@@ -190,11 +216,17 @@ def _call_claude(user_message: str, history: list) -> str:
         timeout=30,
     )
     response.raise_for_status()
-    return response.json()["content"][0]["text"]
+    data = response.json()
+    content = data.get("content", [])
+    if not content:
+        return "The AI returned an empty response. Try again."
+    return content[0]["text"]
 
 
 def _call_bedrock(user_message: str, history: list) -> str:
     """Call AWS Bedrock (Claude) API."""
+    if bedrock_client is None:
+        raise ValueError("Bedrock client is not initialized. Check AWS credentials.")
     messages = list(history)
     messages.append({"role": "user", "content": user_message})
 
@@ -213,7 +245,10 @@ def _call_bedrock(user_message: str, history: list) -> str:
     )
 
     result = json.loads(response["body"].read())
-    return result["content"][0]["text"]
+    content = result.get("content", [])
+    if not content:
+        return "The AI returned an empty response. Try again."
+    return content[0]["text"]
 
 
 # ---------------------------------------------------------
@@ -299,8 +334,8 @@ class HelpCard(Command):
             memory_key = get_memory_key(room, sender)
             try:
                 return ask_ai(user_message, memory_key)
-            except Exception as e:
-                return f"Something went wrong talking to the AI: {e}"
+            except Exception:
+                return "Something went wrong talking to the AI. Try again in a moment."
 
         elif action == "clear":
             key = get_memory_key(room, sender)
@@ -326,8 +361,9 @@ class Help(Command):
         super().__init__(
             command_keyword="help",
             help_message="Show the TARS welcome card with quick actions",
-            card=WELCOME_CARD,
+            card=json.loads(json.dumps(WELCOME_CARD)),
         )
+        self.card_callback_keyword = None
 
     def execute(self, message, attachment_actions, activity):
         return ""
@@ -378,7 +414,7 @@ class ClearMemory(Command):
 class AskTARS(Command):
     def __init__(self):
         super().__init__(
-            command_keyword=" ",
+            command_keyword="",
             help_message="Talk to TARS - just type anything!",
             card=None,
         )
@@ -399,8 +435,8 @@ class AskTARS(Command):
 
         try:
             return ask_ai(user_message, memory_key)
-        except Exception as e:
-            return f"Something went wrong talking to the AI: {e}"
+        except Exception:
+            return "Something went wrong talking to the AI. Try again in a moment."
 
 
 # ---------------------------------------------------------
@@ -409,17 +445,17 @@ class AskTARS(Command):
 if __name__ == "__main__":
     if not BOT_TOKEN:
         print("ERROR: BOT_TOKEN is missing. Add it to your .env file.")
-        exit(1)
+        sys.exit(1)
     if not AI_PROVIDER:
         print("ERROR: AI_PROVIDER is missing. Set it to 'openai', 'claude', or 'bedrock' in your .env file.")
-        exit(1)
+        sys.exit(1)
     if AI_PROVIDER == "bedrock":
         if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
             print("ERROR: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are required for bedrock provider.")
-            exit(1)
+            sys.exit(1)
     elif not AI_API_KEY:
         print("ERROR: AI_API_KEY is missing. Add it to your .env file.")
-        exit(1)
+        sys.exit(1)
 
     model = AI_MODEL or DEFAULT_MODELS.get(AI_PROVIDER, "unknown")
     print(f"Starting TARS bot with AI provider: {AI_PROVIDER} (model: {model})")
