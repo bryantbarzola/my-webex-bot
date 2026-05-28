@@ -90,6 +90,32 @@ Remember: "Everybody good? Plenty of slaves for my robot colony?"
 """
 
 # ---------------------------------------------------------
+# KNOWLEDGE DIRECTORY
+# ---------------------------------------------------------
+# Drop .txt or .md files into the knowledge/ folder and the
+# bot will use them as reference material when answering.
+# ---------------------------------------------------------
+KNOWLEDGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "knowledge")
+
+
+def load_knowledge() -> str:
+    """Read all .txt and .md files from the knowledge/ directory."""
+    if not os.path.isdir(KNOWLEDGE_DIR):
+        return ""
+    contents = []
+    for filename in sorted(os.listdir(KNOWLEDGE_DIR)):
+        if filename.endswith((".txt", ".md")):
+            filepath = os.path.join(KNOWLEDGE_DIR, filename)
+            with open(filepath, "r", encoding="utf-8") as f:
+                contents.append(f"### {filename}\n{f.read().strip()}")
+    return "\n\n".join(contents)
+
+
+KNOWLEDGE = load_knowledge()
+if KNOWLEDGE:
+    SYSTEM_PROMPT += f"\n\n## Reference Information\nUse the following knowledge to answer questions when relevant:\n\n{KNOWLEDGE}\n"
+
+# ---------------------------------------------------------
 # CONVERSATION MEMORY
 # ---------------------------------------------------------
 # The bot remembers what you said earlier in the conversation.
@@ -464,6 +490,11 @@ if __name__ == "__main__":
         print(f"Room restriction: enabled ({len(ALLOWED_ROOMS)} room(s) allowed)")
     else:
         print("Room restriction: disabled (responding in all rooms)")
+    knowledge_files = [f for f in os.listdir(KNOWLEDGE_DIR) if f.endswith((".txt", ".md"))] if os.path.isdir(KNOWLEDGE_DIR) else []
+    if knowledge_files:
+        print(f"Knowledge files: {len(knowledge_files)} loaded from knowledge/")
+    else:
+        print("Knowledge files: none (add .txt or .md files to knowledge/ to give the bot reference info)")
     print("Press Ctrl+C to stop the bot.\n")
 
     bot = WebexBot(BOT_TOKEN, help_command=AskTARS())
