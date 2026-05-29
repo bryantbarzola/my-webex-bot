@@ -169,9 +169,6 @@ def ask_ai(user_message: str, memory_key: str = None) -> str:
 
     history = get_memory(memory_key) if memory_key else []
 
-    if memory_key:
-        add_to_memory(memory_key, "user", user_message)
-
     if AI_PROVIDER == "openai":
         reply = _call_openai(user_message, history)
     elif AI_PROVIDER == "claude":
@@ -182,23 +179,20 @@ def ask_ai(user_message: str, memory_key: str = None) -> str:
         return f"Unknown AI provider: {AI_PROVIDER}. Set AI_PROVIDER to 'openai', 'claude', or 'bedrock' in your .env file."
 
     if memory_key:
+        add_to_memory(memory_key, "user", user_message)
         add_to_memory(memory_key, "assistant", reply)
 
     return reply
-
-
-def _build_openai_messages(user_message: str, history: list) -> list:
-    """Build the messages array for OpenAI-compatible APIs."""
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    messages.extend(history)
-    messages.append({"role": "user", "content": user_message})
-    return messages
 
 
 def _call_openai(user_message: str, history: list) -> str:
     """Call OpenAI API."""
     if not AI_API_KEY:
         raise ValueError("AI_API_KEY is not configured")
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": user_message})
+
     response = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={
@@ -207,7 +201,7 @@ def _call_openai(user_message: str, history: list) -> str:
         },
         json={
             "model": AI_MODEL or DEFAULT_MODELS["openai"],
-            "messages": _build_openai_messages(user_message, history),
+            "messages": messages,
         },
         timeout=30,
     )
@@ -335,6 +329,26 @@ WELCOME_CARD = {
 
 
 # ---------------------------------------------------------
+# SHARED RESPONSES
+# ---------------------------------------------------------
+def _clear_memory_response(key: str) -> str:
+    if clear_memory(key):
+        return "Memory wiped. Starting fresh, just like after a reboot."
+    return "Nothing to clear — your memory was already empty."
+
+
+def _room_info_response(room_id: str):
+    response = Response()
+    response.markdown = (
+        f"**Room ID:** `{room_id}`\n\n"
+        "To restrict the bot to this room, add this to your `.env` file:\n\n"
+        f"```\nALLOWED_ROOMS={room_id}\n```\n\n"
+        "Then restart the bot."
+    )
+    return response
+
+
+# ---------------------------------------------------------
 # BOT COMMANDS
 # ---------------------------------------------------------
 class HelpCard(Command):
@@ -365,19 +379,10 @@ class HelpCard(Command):
 
         elif action == "clear":
             key = get_memory_key(room, sender)
-            if clear_memory(key):
-                return "Memory wiped. Starting fresh, just like after a reboot."
-            return "Nothing to clear — your memory was already empty."
+            return _clear_memory_response(key)
 
         elif action == "room_info":
-            response = Response()
-            response.markdown = (
-                f"**Room ID:** `{room}`\n\n"
-                "To restrict the bot to this room, add this to your `.env` file:\n\n"
-                f"```\nALLOWED_ROOMS={room}\n```\n\n"
-                "Then restart the bot."
-            )
-            return response
+            return _room_info_response(room)
 
         return "Unknown action. Try again!"
 
@@ -387,7 +392,7 @@ class Help(Command):
         super().__init__(
             command_keyword="help",
             help_message="Show the TARS welcome card with quick actions",
-            card=json.loads(json.dumps(WELCOME_CARD)),
+            card=WELCOME_CARD,
         )
         self.card_callback_keyword = None
 
@@ -404,16 +409,7 @@ class RoomInfo(Command):
         )
 
     def execute(self, message, attachment_actions, activity):
-        room_id = activity["target"]["id"]
-
-        response = Response()
-        response.markdown = (
-            f"**Room ID:** `{room_id}`\n\n"
-            "To restrict the bot to this room, add this to your `.env` file:\n\n"
-            f"```\nALLOWED_ROOMS={room_id}\n```\n\n"
-            "Then restart the bot."
-        )
-        return response
+        return _room_info_response(activity["target"]["id"])
 
 
 class ClearMemory(Command):
@@ -428,13 +424,7 @@ class ClearMemory(Command):
         sender = activity["actor"]["emailAddress"]
         room = activity["target"]["id"]
         key = get_memory_key(room, sender)
-
-        response = Response()
-        if clear_memory(key):
-            response.markdown = "Memory wiped. Starting fresh, just like after a reboot."
-        else:
-            response.markdown = "Nothing to clear — your memory was already empty."
-        return response
+        return _clear_memory_response(key)
 
 
 class AskTARS(Command):
@@ -490,9 +480,9 @@ if __name__ == "__main__":
         print(f"Room restriction: enabled ({len(ALLOWED_ROOMS)} room(s) allowed)")
     else:
         print("Room restriction: disabled (responding in all rooms)")
-    knowledge_files = [f for f in os.listdir(KNOWLEDGE_DIR) if f.endswith((".txt", ".md"))] if os.path.isdir(KNOWLEDGE_DIR) else []
-    if knowledge_files:
-        print(f"Knowledge files: {len(knowledge_files)} loaded from knowledge/")
+    if KNOWLEDGE:
+        file_count = KNOWLEDGE.count("### ")
+        print(f"Knowledge files: {file_count} loaded from knowledge/")
     else:
         print("Knowledge files: none (add .txt or .md files to knowledge/ to give the bot reference info)")
     print("Press Ctrl+C to stop the bot.\n")
