@@ -292,26 +292,26 @@ WELCOME_CARD = {
     "body": [
         {
             "type": "TextBlock",
-            "text": "TARS Bot",
+            "text": "AI Bot",
             "weight": "Bolder",
             "size": "Large",
         },
         {
             "type": "TextBlock",
-            "text": "AI assistant with 75% humor calibration. Type anything to chat with me, or use the quick actions below.",
+            "text": "Type anything to chat with me, or use the quick actions below.",
             "wrap": True,
             "spacing": "Small",
         },
         {
             "type": "Input.Text",
             "id": "message",
-            "placeholder": "Type a message for TARS...",
+            "placeholder": "Type a message...",
         },
     ],
     "actions": [
         {
             "type": "Action.Submit",
-            "title": "Send to TARS",
+            "title": "Send",
             "data": {"callback_keyword": "help_card", "action": "chat"},
         },
         {
