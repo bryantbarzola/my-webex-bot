@@ -1,5 +1,6 @@
 .env
 logs/
 venv/
+mywebexbotvenv/
 __pycache__/
 *.pyc

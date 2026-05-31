@@ -391,7 +391,7 @@ class Help(Command):
     def __init__(self):
         super().__init__(
             command_keyword="help",
-            help_message="Show the TARS welcome card with quick actions",
+            help_message="Show the welcome card with quick actions",
             card=WELCOME_CARD,
         )
         self.card_callback_keyword = None
@@ -416,7 +416,7 @@ class ClearMemory(Command):
     def __init__(self):
         super().__init__(
             command_keyword="clear memory",
-            help_message="Clear your conversation history with TARS",
+            help_message="Clear your conversation history",
             card=None,
         )
 
@@ -427,11 +427,11 @@ class ClearMemory(Command):
         return _clear_memory_response(key)
 
 
-class AskTARS(Command):
+class AskAI(Command):
     def __init__(self):
         super().__init__(
             command_keyword="",
-            help_message="Talk to TARS - just type anything!",
+            help_message="Talk to the bot - just type anything!",
             card=None,
         )
 
@@ -474,7 +474,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     model = AI_MODEL or DEFAULT_MODELS.get(AI_PROVIDER, "unknown")
-    print(f"Starting TARS bot with AI provider: {AI_PROVIDER} (model: {model})")
+    print(f"Starting bot with AI provider: {AI_PROVIDER} (model: {model})")
     print(f"Conversation memory: enabled (last {MAX_MEMORY_MESSAGES} messages per user)")
     if ALLOWED_ROOMS:
         print(f"Room restriction: enabled ({len(ALLOWED_ROOMS)} room(s) allowed)")
@@ -487,7 +487,7 @@ if __name__ == "__main__":
         print("Knowledge files: none (add .txt or .md files to knowledge/ to give the bot reference info)")
     print("Press Ctrl+C to stop the bot.\n")
 
-    bot = WebexBot(BOT_TOKEN, help_command=AskTARS())
+    bot = WebexBot(BOT_TOKEN, help_command=AskAI())
     bot.add_command(Help())
     bot.add_command(HelpCard())
     bot.add_command(RoomInfo())
