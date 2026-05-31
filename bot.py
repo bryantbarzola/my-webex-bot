@@ -9,6 +9,7 @@ Features: conversation memory, room restriction, custom personality.
 import os
 import sys
 import json
+import logging
 import threading
 import requests
 from dotenv import load_dotenv
@@ -22,6 +23,9 @@ except ImportError:
     boto3 = None
 
 load_dotenv()
+
+logging.getLogger("webex_bot.webex_bot").setLevel(logging.ERROR)
+logging.getLogger("webex_bot.models").setLevel(logging.ERROR)
 
 # ---------------------------------------------------------
 # CONFIG - Change these in your .env file
